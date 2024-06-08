@@ -16,6 +16,8 @@
   [^Godot.GodotObject o]
   (if (Godot.GodotObject/IsInstanceValid o) o nil))
 
+(defn strname [s] (Godot.StringName. s))
+
 (defn node-path [s] (Godot.NodePath. s))
 
 (defn ^Node root
@@ -49,13 +51,13 @@
 (defn objects-in-group [^Godot.StringName group]
   (.GetNodesInGroup (Godot.Engine/GetMainLoop) group))
 
-(defn change-scene ;FIXME
+(defn change-scene
   "Changes the root scene to the one at the given path"
   [s]
   (.ChangeSceneToFile (Godot.Engine/GetMainLoop) (str "res://" s)))
 
-(defn load-scene [s] ;FIXME
-  (let [scene (ResourceLoader/Load (str "res://" s) "PackedScene" true)]
+(defn load-scene [s]
+  (let [scene (ResourceLoader/Load (str "res://" s) "PackedScene" 1)]
     scene))
 
 (defn get-node 
@@ -65,19 +67,19 @@
   ([n s]
     (.GetNode n (node-path s))))
 
-(defn find-node 
+(defn find-child 
   "Recursive find a descendant node , s is a name string supporting * and ? wildcards. Uses the global scene viewport Node if only 1 argument is given"
   ([s]
-    (find-node (root) s))
+    (find-child (root) s))
   ([n s]
-    (.FindNode n s true false)))
+    (.FindChild n s true false)))
 
-(defn instance [pscn]
+(defn instantiate [pscn]
   "Instance a PackedScene"
-  (.Instance pscn 0))
+  (.Instantiate pscn 0))
 
 (defn add-child [^Node node ^Node child]
-  (.AddChild node child true))
+  (.AddChild node child false 0))
 
 (defn remove-child [^Node node ^Node child]
   (.RemoveChild node child))
@@ -86,7 +88,7 @@
   (.GetParent node (type-args Node)))
 
 (defn children [^Node node]
-  (.GetChildren node))
+  (.GetChildren node false))
 
 (defn destroy [^Node node]
   (.QueueFree node))
@@ -203,7 +205,7 @@
   (let [node (obj node)]
     (or (Arcadia.Util/GetHook node)
       (let [o (Arcadia.ArcadiaHook.)]
-        (.AddChild node o true) o))))
+        (.AddChild node o false 0) o))))
 
 (defn ^:private keystr [x]
   (cond (keyword? x) (name x) (string? x) x :else (str x)))

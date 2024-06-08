@@ -1,35 +1,33 @@
 (ns arcadia.3D
   (:import 
-    [Godot Node GD SceneTree Spatial Vector3 KinematicBody]))
+    [Godot Node GD Node3D Vector3 CharacterBody3D]))
 
 
-(defn ^Vector3 translation [^Spatial o]
-  (.origin (.GetGlobalTransform o)))
+(defn ^Vector3 global-position [^Node3D o]
+  (.GlobalPosition o))
 
-(defn ^Vector3 local-translation [^Spatial o]
-  (.Translation o))
+(defn ^Vector3 position [^Node3D o]
+  (.Position o))
 
-(defn ^Vector3 translation! [ o ^Vector3 v]
-  (let [tx (.GetGlobalTransform o)]
-    (set! (.origin tx) v)
-    (.SetGlobalTransform o tx)))
+(defn ^Vector3 global-position! [ o ^Vector3 v]
+  (set! (.GlobalPosition o) v))
 
-(defn ^Vector3 local-translation! [^Spatial o ^Vector3 v]
-  (.SetTranslation o v))
+(defn ^Vector3 position! [^Node3D o ^Vector3 v]
+  (set! (.Position o) v))
 
 
 
-(defn ^Vector3 scale [^Spatial o]
+(defn ^Vector3 scale [^Node3D o]
   (.Scale o))
 
-(defn ^Vector3 scale! [^Spatial o ^Vector3 v]
+(defn ^Vector3 scale! [^Node3D o ^Vector3 v]
   (set! (.Scale o) v))
 
 (defn ^Vector3 move-and-slide
-  "Calls the `.MoveAndSlide` method on a `KinematicBody`.
+  "Calls the `.MoveAndSlide` method on a `CharacterBody3D`.
    This function exists because `(.MoveAndSlide ...)` requires
    that all C# optional parameters are provided."
-  [^KinematicBody o
+  [^CharacterBody3D o
    ^Vector3 v
    & {:keys [floor-normal
              stop-on-slope?
