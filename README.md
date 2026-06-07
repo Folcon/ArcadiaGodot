@@ -78,16 +78,26 @@ For quick access try `telnet localhost 5571`.
 
 ### Exports
 
-After building your project you'll need to manually compile your clojure namespaces into the build directory:
+AOT Workflow doesn't work on .NET 8.0 as AssemblyBuilder.Save was removed.
+
+I've not properly updated the docs here or found a work around, so just crossing it out for now.
+
+- **Desktop (Windows / macOS / Linux): supported.**
+- **Mobile / Web: not supported** - those targets used to use AOT, which disables
+  `Reflection.Emit`, so Clojure can't be compiled at runtime.
+
+Please let me know if you find a workaround!
+
+~~After building your project you'll need to manually compile your clojure namespaces into the build directory:~~
 
 ```
 (require 'arcadia.internal.compiler)
 (arcadia.internal.compiler/aot "export/dlls" ['selfsame.core])
 ```
 
-The entire dependency tree for the given namespaces will be compiled as well.
+~~The entire dependency tree for the given namespaces will be compiled as well.~~
 
-Note: the path must allready exist. You can place dlls in the root build directory or a folder named "dlls".
+~~Note: the path must already exist. You can place dlls in the root build directory or a folder named "dlls".~~
 
 
 ## Differences from Arcadia Unity
