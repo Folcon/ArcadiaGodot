@@ -39,17 +39,17 @@
   ([group method args]
    (call-group! (tree) group method args))
   ([scene-tree group method args]
-   (.CallGroup scene-tree group method (to-array args))))
+   (.CallGroup scene-tree (strname group) (strname method) (to-array args))))
 
 (defn group!
   ([node ^Godot.StringName s] (group! node s true))
-  ([node ^Godot.StringName s pers] (.AddToGroup node s pers)))
+  ([node ^Godot.StringName s pers] (.AddToGroup node (strname s) pers)))
 
 (defn in-group? [^Godot.Node node ^Godot.StringName group]
-  (.IsInGroup node group))
+  (.IsInGroup node (strname group)))
 
-(defn objects-in-group [^Godot.StringName group]
-  (.GetNodesInGroup (Godot.Engine/GetMainLoop) group))
+(defn objects-in-group [group]
+  (vec (.GetNodesInGroup (Godot.Engine/GetMainLoop) (strname group))))
 
 (defn change-scene
   "Changes the root scene to the one at the given path"
@@ -60,19 +60,27 @@
   (let [scene (ResourceLoader/Load (str "res://" s) "PackedScene" 1)]
     scene))
 
+(defn load-texture [s]
+  (let [texture (ResourceLoader/Load (str "res://" s) "Texture2D" 1)]
+    texture))
+
+(defn load-audio [s]
+  (let [audio (ResourceLoader/Load (str "res://" s) "AudioStream" 1)]
+    audio))
+
 (defn get-node 
   "Gets child of a node by path, or uses the global scene viewport Node if only 1 argument is given, \"/root/etc\""
   ([s]
    (get-node (root) s))
   ([n s]
-    (.GetNode n (node-path s))))
+   (.GetNode n (node-path s))))
 
 (defn find-child 
   "Recursive find a descendant node , s is a name string supporting * and ? wildcards. Uses the global scene viewport Node if only 1 argument is given"
   ([s]
-    (find-child (root) s))
+   (find-child (root) s))
   ([n s]
-    (.FindChild n s true false)))
+   (.FindChild n s true false)))
 
 (defn instantiate [pscn]
   "Instance a PackedScene"
@@ -88,7 +96,7 @@
   (.GetParent node (type-args Node)))
 
 (defn children [^Node node]
-  (.GetChildren node false))
+  (vec (.GetChildren node false)))
 
 (defn destroy [^Node node]
   (.QueueFree node))
@@ -102,103 +110,76 @@
 
 (def alphabet ["a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"])
 
-(def variants-enum {
-  nil             0
-  System.Boolean  1
-  System.Int32    2
-  System.Single   3
-  System.String   4
-  Godot.Vector2   5
-  Godot.Rect2     6
-  Godot.Vector3   7
-  Godot.Transform2D 8
-  Godot.Plane     9
-  Godot.Quaternion 10
-  ;Godot.AABB      11
-  Godot.Basis     12
-  Godot.Transform3D 13
-  Godot.Color     14
-  Godot.NodePath  15
-  ;Godot.RID       16
-  Godot.GodotObject    17
-  Godot.Collections.Dictionary 18
-  Godot.Collections.Array 19
-  System.Byte     20
-  |System.Int32[]|  21
-  |System.Single[]| 22
-  |System.String[]| 23
-  |Godot.Vector2[]| 24
-  |Godot.Vector3[]| 25
-  |Godot.Color[]|   26 })
-
-(defonce ^:private adhoc-signals (AdhocSignals.))
-
-(defn ^:private _connect [^Node node ^String signal-name ^Godot.GodotObject o f]
-  (let [guid (str (System.Guid/NewGuid))]
-    (.Register o guid f)
-    (.Connect node (Godot.StringName. signal-name)
-      (Godot.Callable. o (Godot.StringName. "CatchMethod"))
-     o "CatchMethod" 
-      (Godot.Collections.Array. (into-array Object [guid])) 0)))
+(def variants-enum
+  {nil             0
+   System.Boolean  1
+   System.Int32    2
+   System.Single   3
+   System.String   4
+   Godot.Vector2   5
+   Godot.Rect2     6
+   Godot.Vector3   7
+   Godot.Transform2D 8
+   Godot.Plane     9
+   Godot.Quaternion 10
+   ;Godot.AABB      11
+   Godot.Basis     12
+   Godot.Transform3D 13
+   Godot.Color     14
+   Godot.NodePath  15
+   ;Godot.RID       16
+   Godot.GodotObject    17
+   Godot.Collections.Dictionary 18
+   Godot.Collections.Array 19
+   System.Byte     20
+   |System.Int32[]|  21
+   |System.Single[]| 22
+   |System.String[]| 23
+   |Godot.Vector2[]| 24
+   |Godot.Vector3[]| 25
+   |Godot.Color[]|   26})
 
 (defn connect
-  "Connects a node's signal to a function. These connections share a Godot.GodotObject 
-   instance and only one connection can be made for each node's signal."
+  "Connects a node's signal to a function, each call is independent and returns a handle."
   [^Node node ^String signal-name f]
-  ;(_connect node signal-name adhoc-signals f)
-  ;TODO figure out arities
-  (.Connect node (Godot.StringName. signal-name) (Godot.Callable/From (sys-action [] (f))) 0))
-
-(defn connect*
-  "Like `connect` but uses a unique Godot.GodotObject for multiple connections to one 
-   signal. Returns the object if you need to `disconnect` or `destroy` it later."
-  [^Node node ^String signal-name f]
-  (let [o (AdhocSignals.)]
-    (_connect node signal-name o f) o))
+  (AdhocSignals/Connect node signal-name f))
 
 (defn connected? 
-  "Check if a signal is connected. If checking a `connect*` instance provide it 
-   as the third argument."
-  ([^Node node ^String signal-name]
-    (connected? node signal-name adhoc-signals))
-  ([^Node node ^String signal-name ^Godot.GodotObject o]
-    (.IsConnected node signal-name o "CatchMethod")))
+  "Check if a signal is connected."
+  [^Node node ^String signal-name ^Godot.Callable conn]
+  (AdhocSignals/IsConnected node signal-name conn))
 
 (defn disconnect
-  "Disconnect a signal. If disconnecting a `connect*` instance provide it as 
-   the third argument."
-  ([^Node node ^String signal-name]
-    (disconnect node signal-name adhoc-signals))
-  ([^Node node ^String signal-name ^Godot.GodotObject o]
-    (.Disconnect node signal-name o "CatchMethod")))
+  "Disconnect a signal using it's returned handle."
+   [^Node node ^String signal-name ^Godot.Callable conn]
+   (AdhocSignals/Disconnect node signal-name conn))
 
 (defn add-signal 
   "Adds a user signal to the object, which can then be emitted with `emit`. args 
    should be type literals matching those listed in the `Godot.Variant.Type` enum"
   ([^Godot.GodotObject o ^String name]
-    (AdhocSignals/AddSignal o name))
+   (AdhocSignals/AddSignal o name))
   ([^Godot.GodotObject o ^String name & args]
-    (let [variants (remove nil? (map (fn [t] (get variants-enum t 17)) args))
-          names    (take (count variants) alphabet)]
-      (AdhocSignals/AddSignal o name (into-array System.String names) (into-array System.Int32 variants)))))
+   (let [variants (remove nil? (map (fn [t] (get variants-enum t 17)) args))
+         names    (take (count variants) alphabet)]
+     (AdhocSignals/AddSignal o name (into-array System.String names) (into-array System.Int32 variants)))))
 
 (defn emit
   "Emit's a node's signal."
   ([^Godot.GodotObject o ^String name]
-    (AdhocSignals/Emit o name))
-  ([^Godot.GodotObject o ^String name a]
-    (AdhocSignals/Emit o name a)))
+   (AdhocSignals/Emit o name (to-array [])))
+  ([^Godot.GodotObject o ^String name & args]
+   (AdhocSignals/Emit o name (to-array args))))
 
-
-(def hook-types {
-  :enter-tree "_enter_tree"
-  :exit-tree "_exit_tree"
-  :ready  "_ready"
-  :tree-ready "_tree_ready"
-  :process "_process"
-  :physics-process "_physics_process"
-  :input "_input"
-  :unhandled-input "_unhandled_input"})
+(def hook-types
+  {:enter-tree "_enter_tree"
+   :exit-tree "_exit_tree"
+   :ready  "_ready"
+   :tree-ready "_tree_ready"
+   :process "_process"
+   :physics-process "_physics_process"
+   :input "_input"
+   :unhandled-input "_unhandled_input"})
 
 ;TODO make this a C# helper, it'll be used a lot for state fns
 (defn ^:private ensure-hook [^Node node]
@@ -244,50 +225,50 @@
   "Retrieves state stored on an object's ArcadiaHook, second arity retrieves by key k"
   ([^Node node k] (get (state node) k))
   ([^Node node]
-    (if-let [^ArcadiaHook hook (Arcadia.Util/GetHook node)] 
-      (.state hook))))
+   (if-let [^ArcadiaHook hook (Arcadia.Util/GetHook node)]
+     (.state hook))))
 
 (defn update-state
   "Updates state stored on an object's ArcadiaHook"
   ([^Node node k ^clojure.lang.IFn f]
-    (update-state node (fn [m] (update m k f))))
+   (update-state node (fn [m] (update m k f))))
   ([^Node node ^clojure.lang.IFn f]
-    (let [hook (ensure-hook node)]
-      (set! (.state hook) (f (.state hook))))))
+   (let [hook (ensure-hook node)]
+     (set! (.state hook) (f (.state hook))))))
 
 (defn set-state 
   "Sets state stored on an object's ArcadiaHook"
   ([^Node node k ^System.Object value]
-    (update-state node (fn [m] (assoc m k value))))
+   (update-state node (fn [m] (assoc m k value))))
   ([^Node node ^System.Object value]
-    (set! (.state (ensure-hook node)) value)))
+   (set! (.state (ensure-hook node)) value)))
 
 (defn timeout 
   "invoke fn `f` after `n` seconds"
   [^System.Double n ^clojure.lang.IFn f]
   (connect (.CreateTimer (Godot.Engine/GetMainLoop) n true false false) "timeout" f))
 
-(def tween-ease-enum {
-  :in     0
-  :out    1
-  :in-out 2
-  :out-in 3})
+(def tween-ease-enum
+  {:in     0
+   :out    1
+   :in-out 2
+   :out-in 3})
 
-(def tween-transition-enum {
-  :linear  0
-  :sine    1
-  :quint   2
-  :quart   3
-  :quad    4
-  :expo    5
-  :elastic 6
-  :cubic   7
-  :circ    8
-  :bounce  9
-  :back    10})
+(def tween-transition-enum
+  {:linear  0
+   :sine    1
+   :quint   2
+   :quart   3
+   :quad    4
+   :expo    5
+   :elastic 6
+   :cubic   7
+   :circ    8
+   :bounce  9
+   :back    10})
 
 (defn tween
-  "Creates a Tween node, mounts it to the root node, runs the tween, then destroys the node. 
+  "Creates a Tween and runs it.
   `property` is a snake_case string of the property coordinates, you can hover over properties in the inspector to see their path
   Can take an option map of: 
     `:transition` (`:linear :sine :quint :quart :quad :expo :elastic :cubic :circ :bounce :back`)
@@ -302,23 +283,23 @@
     "
   ([object property initialVal finalVal duration] (tween object property initialVal finalVal duration {}))
   ([object property initialVal finalVal duration {:keys [transition easing delay callback]}]
-    (let [^System.Object t (Godot.Tween.)
-          adhoc (AdhocSignals.)]
-      (add-child (root) t)
-      (.InterpolateProperty t object (Godot.NodePath. property) initialVal finalVal duration 
-        (get tween-transition-enum transition 0)
-        (get tween-ease-enum easing 2) (or delay 0))
-      (_connect t "tween_all_completed" adhoc (fn [] (if callback (callback)) (destroy t) (destroy adhoc)))
-      (.Start t) t)))
+   (let [t  (.CreateTween (Godot.Engine/GetMainLoop))
+         pt (.TweenProperty t object (Godot.NodePath. property) (Arcadia.Util/ToVariant finalVal) (double duration))]
+     (.From     pt (Arcadia.Util/ToVariant initialVal))
+     (.SetTrans pt (Enum/ToObject Godot.Tween+TransitionType (get tween-transition-enum transition 0)))
+     (.SetEase  pt (Enum/ToObject Godot.Tween+EaseType       (get tween-ease-enum easing 2)))
+     (.SetDelay pt (double (or delay 0)))
+     (when callback (connect t "finished" callback))
+     t)))
 
 
 (defn play-sound
   "Convenience fn to play an audio file, `(play-sound \"music/song1.ogg\")`"
   ([s] (play-sound s 0))
   ([s n]
-    (let [audio (Godot.AudioStreamPlayer.)]
-      (add-child (root) audio)
-      (set! (.VolumeDb audio) (float n))
-      (set! (.Stream audio) (load-scene s))
-      (.Play audio 0)
-      (connect* audio "finished" (fn [] (destroy audio))))))
+   (let [audio (Godot.AudioStreamPlayer.)]
+     (add-child (root) audio)
+     (set! (.VolumeDb audio) (float n))
+     (set! (.Stream audio) (load-audio s))
+     (.Play audio 0)
+     (connect audio "finished" (fn [] (destroy audio))))))

@@ -56,20 +56,21 @@ namespace Arcadia
         {
             System.Environment.SetEnvironmentVariable(
                 "CLOJURE_LOAD_PATH",
-                Path.Combine(System.IO.Directory.GetCurrentDirectory(), "ArcadiaGodot", "Source") +
-                Path.PathSeparator+
-                Path.Combine(System.IO.Directory.GetCurrentDirectory(), "ArcadiaGodot", "Clojure"));
+                string.Join(Path.PathSeparator, new[] {
+                    ProjectSettings.GlobalizePath("res://addons/ArcadiaGodot/Source"),
+                    ProjectSettings.GlobalizePath("res://src")
+                }));
         }
 
         public static void SetClojureLoadPathWithDLLs()
         {
             System.Environment.SetEnvironmentVariable(
                 "CLOJURE_LOAD_PATH",
-                Path.Combine(System.IO.Directory.GetCurrentDirectory(), "ArcadiaGodot", "Source") +
-                Path.PathSeparator +
-                Path.Combine(System.IO.Directory.GetCurrentDirectory(), "ArcadiaGodot", "Clojure") +
-                Path.PathSeparator +
-                Path.Combine(System.IO.Directory.GetCurrentDirectory(), "dlls"));
+                string.Join(Path.PathSeparator, new[] {
+                    ProjectSettings.GlobalizePath("res://addons/ArcadiaGodot/Source"),
+                    ProjectSettings.GlobalizePath("res://src"),
+                    ProjectSettings.GlobalizePath("res://dlls"),
+                }));
         }
 
         public static void Initialize()
@@ -81,6 +82,8 @@ namespace Arcadia
                 DisableSpecChecking();
                 SetClojureLoadPathWithDLLs();
                 RT.load("clojure/core");
+                Assembly.Load("clojure.spec.alpha"); // make embedded clojure/spec/alpha findable
+                Assembly.Load("clojure.core.specs.alpha"); // needed by the ns/defn macros
                 RT.load("arcadia/internal/namespace");
                 if (OS.IsDebugBuild()) {
                     RT.load("arcadia/repl");

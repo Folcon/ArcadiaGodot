@@ -108,15 +108,45 @@ namespace Arcadia
 			return Callable.From<IFn>(f as Action);
 		}*/
 
+        public static object V(Variant v)
+        {
+            switch (v.VariantType)
+            {
+                case Variant.Type.Nil:        return null;
+                case Variant.Type.Bool:       return v.AsBool();
+                case Variant.Type.Int:        return v.AsInt64();
+                case Variant.Type.Float:      return v.AsDouble();
+                case Variant.Type.String:     return v.AsString();
+                case Variant.Type.StringName: return v.AsStringName();
+                case Variant.Type.Object:     return v.AsGodotObject();
+                default:                      return v;
+            }
+        }
+
+        public static Variant ToVariant(object o) => o switch
+        {
+          null            => new Variant(),
+          Variant v       => v,
+          bool b          => Variant.From(b),
+          long l          => Variant.From(l),
+          int i           => Variant.From(i),
+          double d        => Variant.From(d),
+          float f         => Variant.From(f),
+          string s        => Variant.From(s),
+          StringName sn   => Variant.From(sn),
+          GodotObject g   => Variant.From(g),
+          _               => Variant.From(o.ToString()),
+        };
+
 		// ==================================================================
 		// Arrays
 
 		// cast System.Object[] to godot variant collection
-		public static Godot.Collections.Array MakeGodotArray< T>(T[] col){
+		public static Godot.Collections.Array MakeGodotArray< T>(T[] col) {
 			var a = new Godot.Collections.Array();
 			for (int i = 0; i < col.Length; i++)
 			{
-				a.Add(Godot.Variant.From(col[i]));
+				a.Add(ToVariant(col[i]));
 			}
 
             return a;
@@ -127,7 +157,7 @@ namespace Arcadia
             var a = new Godot.Variant[col.Length];
             for (int i = 0; i < col.Length; i++)
             {
-                a[i] = Godot.Variant.From(col[i]);
+                a[i] = ToVariant(col[i]);
             }
             return a;
         }

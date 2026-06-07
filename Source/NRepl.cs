@@ -540,95 +540,103 @@ namespace Arcadia
 							GD.Print("nrepl: connected to client ", client.Client.RemoteEndPoint);
 							var parser = new BencodeNET.Parsing.BencodeParser();
 							var clientRunning = true;
-							var buffer = new byte[1024 * 8]; // 8k buffer
+							// var buffer = new byte[1024 * 8]; // 8k buffer
+							var reader = new BencodeNET.IO.BencodeReader(client.GetStream());
 							while (running && clientRunning)
 							{
-								// bencode needs a seekable stream to parse, so each
-								// message gets its own MemoryStream (MemoryStreams are
-								// seekable, NetworkStreams e.g. client.GetStream() are not)
-								try
-								{
-									using (var ms = new MemoryStream())
-									{
-										// message might be bigger than our buffer
-										// loop till we have the whole thing
-										var parsedMessage = false;
-										while (!parsedMessage)
-										{
-											// copy from network stream into memory stream
-											var total = client.GetStream().Read(buffer, 0, buffer.Length);
-											if (total == 0)
-											{
-												// reading zero bytes after blocking means the other end has hung up
-												clientRunning = false;
-												break;
-											}
-											ms.Write(buffer, 0, total);
-											// bencode parsing expects stream position to be 0
-											ms.Position = 0;
-											try
-											{
-												// try and parse the message and handle it
-												var obj = parser.Parse(ms);
-												parsedMessage = true;
-												var message = obj as BDictionary;
-												if (message != null)
-												{
-													try
-													{
-														HandleMessage(message, client);
-													}
-													catch (Exception e)
-													{
-														GD.PrintErr(e);
-													}
-												}
-											}
-											catch (InvalidBencodeException<BDictionary> e)
-											{
-												if (Encoding.UTF8.GetString(ms.GetBuffer())
-													.Contains("2:op13:init-debugger"))
-												{
-													// hack to deal with cider sending us packets with duplicate keys
-													// BencodeNET cannot deal with duplicate keys, hence the string check
-													// the real solution is to switch to the bencode implementation that
-													// nrepl itself uses
-													parsedMessage = true;
-												}
-												else
-												{
-													// most likely an incomplete message. i kind
-													// of wish this was an EOF exception... we cannot
-													// actually tell the difference between an incomplete
-													// message and an invalid one as it stands
+								var obj = parser.Parse(reader);     // reads exactly one message; blocks for more bytes as needed
+								if (obj == null) { clientRunning = false; break; }   // stream closed
 
-													// seek to the end of the MemoryStream to take on more bytes
-													ms.Seek(0, SeekOrigin.End);
-												}
-											}
-										}
-									}
-								}
-								catch (SocketException e)
+								if (obj is BDictionary message)
 								{
-									// the other end has disconnected, gracefully shutdown
-									clientRunning = false;
+									HandleMessage(message, client);
 								}
-								catch (IOException e)
-								{
-									// the other end has disconnected, gracefully shutdown
-									clientRunning = false;
-								}
-								catch (ObjectDisposedException e)
-								{
-									// the other end has disconnected, gracefully shutdown
-									clientRunning = false;
-								}
-								catch (Exception e)
-								{
-									GD.Print("nrepl: ", e);
-									clientRunning = false;
-								}
+								// // bencode needs a seekable stream to parse, so each
+								// // message gets its own MemoryStream (MemoryStreams are
+								// // seekable, NetworkStreams e.g. client.GetStream() are not)
+								// try
+								// {
+								// 	using (var ms = new MemoryStream())
+								// 	{
+								// 		// message might be bigger than our buffer
+								// 		// loop till we have the whole thing
+								// 		var parsedMessage = false;
+								// 		while (!parsedMessage)
+								// 		{
+								// 			// copy from network stream into memory stream
+								// 			var total = client.GetStream().Read(buffer, 0, buffer.Length);
+								// 			if (total == 0)
+								// 			{
+								// 				// reading zero bytes after blocking means the other end has hung up
+								// 				clientRunning = false;
+								// 				break;
+								// 			}
+								// 			ms.Write(buffer, 0, total);
+								// 			// bencode parsing expects stream position to be 0
+								// 			ms.Position = 0;
+								// 			try
+								// 			{
+								// 				// try and parse the message and handle it
+								// 				var obj = parser.Parse(new BencodeNET.IO.BencodeReader(ms));
+								// 				parsedMessage = true;
+								// 				var message = obj as BDictionary;
+								// 				if (message != null)
+								// 				{
+								// 					try
+								// 					{
+								// 						HandleMessage(message, client);
+								// 					}
+								// 					catch (Exception e)
+								// 					{
+								// 						GD.PrintErr(e);
+								// 					}
+								// 				}
+								// 			}
+								// 			catch (InvalidBencodeException<BDictionary> e)
+								// 			{
+								// 				if (Encoding.UTF8.GetString(ms.GetBuffer())
+								// 					.Contains("2:op13:init-debugger"))
+								// 				{
+								// 					// hack to deal with cider sending us packets with duplicate keys
+								// 					// BencodeNET cannot deal with duplicate keys, hence the string check
+								// 					// the real solution is to switch to the bencode implementation that
+								// 					// nrepl itself uses
+								// 					parsedMessage = true;
+								// 				}
+								// 				else
+								// 				{
+								// 					// most likely an incomplete message. i kind
+								// 					// of wish this was an EOF exception... we cannot
+								// 					// actually tell the difference between an incomplete
+								// 					// message and an invalid one as it stands
+								//
+								// 					// seek to the end of the MemoryStream to take on more bytes
+								// 					ms.Seek(0, SeekOrigin.End);
+								// 				}
+								// 			}
+								// 		}
+								// 	}
+								// }
+								// catch (SocketException e)
+								// {
+								// 	// the other end has disconnected, gracefully shutdown
+								// 	clientRunning = false;
+								// }
+								// catch (IOException e)
+								// {
+								// 	// the other end has disconnected, gracefully shutdown
+								// 	clientRunning = false;
+								// }
+								// catch (ObjectDisposedException e)
+								// {
+								// 	// the other end has disconnected, gracefully shutdown
+								// 	clientRunning = false;
+								// }
+								// catch (Exception e)
+								// {
+								// 	GD.Print("nrepl: ", e);
+								// 	clientRunning = false;
+								// }
 							}
 							GD.Print("nrepl: disconnected from client ", client.Client.RemoteEndPoint);
 							client.Close();
