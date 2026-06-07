@@ -13,18 +13,26 @@ Community
 
 Setup
 ----------
-You'll need a version of [Godot with Mono](https://godotengine.org/download) and `MSBuild` (see the Requirements section on the download page).
+You'll need a version of [Godot 4.6+ (.NET build)](https://godotengine.org/download).
 
-Clone this repository into your project folder.
+Clone this repository into your project's `addons/` folder so it's at `res://addons/ArcadiaGodot/`.
 
 In the Godot Editor, run the `Project > Tools > Mono > Create C# Solution` menu command.
 
 Edit the `{project}.csproj` file to include the following itemgroup.
 
 ```xml
-  <ItemGroup>
-    <Reference Include="ArcadiaGodot/Infrastructure/**/*.dll"></Reference>
-  </ItemGroup>
+<Project Sdk="Godot.NET.Sdk/4.6.3">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <RollForward>LatestMajor</RollForward> <!-- only if you lack the net8 runtime -->
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Clojure" Version="1.12.2" />   <!-- ClojureCLR runtime -->
+        <PackageReference Include="BencodeNET" Version="5.0.0" /> <!-- required for the nREPL -->
+    </ItemGroup>
+</Project>
 ```
 
 Finally, you'll need at least one `ArcadiaHook.cs` script in your main scene.  You'll then be able to build (play button) and connect to one of the repls or reload `.clj` files that have changed.
@@ -48,17 +56,17 @@ You can hook functions to Godot nodes in clojure with `hook+` and `hook-`.  This
 
 ```clj
 ;add a anonymous hook function to the player's _Input method
-(hook+ (find-node "player") :input :bar-key (fn [o k e] (log "input event:" e)))
+(hook+ (find-child "player") :input :bar-key (fn [o k e] (log "input event:" e)))
 
 ;remove a hook fn on the menu node
-(hook- (find-node "menu") :ready :my-key)
+(hook- (find-child "menu") :ready :my-key)
 ```
 
 ### Signals
 
 [Signals](https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html) are Godot's system for events. `arcadia.core` contains functions for working with signals: `connect`, `disconnect`, `connected?`, `add-signal`, and `emit`.
 
-`(connect (find-node "Button") "pressed" (fn [] (log "button was pressed!")))`
+`(connect (find-child "Button") "pressed" (fn [] (log "button was pressed!")))`
 
 Most built in nodes emit a range of useful signals (like buttons being pressed, physics collisions). If you connect a var (like `#'game.core/handle-newgame`) you will be able to redefine the function in the repl.
 
